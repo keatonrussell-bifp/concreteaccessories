@@ -430,8 +430,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .regen{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#cfe0fb;border-radius:6px;cursor:pointer;padding:0 9px;font-size:14px}
   .regen:hover{background:rgba(255,255,255,.2)}
 
-  .wrap{max-width:2520px;margin:0 auto;padding:22px}
-  .grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+  .wrap{max-width:none;width:100%;margin:0 auto;padding:14px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:10px;align-items:start}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(20,30,60,.04)}
   .card h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0;padding:14px 16px 0;display:flex;justify-content:space-between;align-items:center}
 
@@ -459,33 +459,48 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .res .rd{color:var(--muted);font-size:12px;flex:1}
   .res .rc{font-family:var(--mono);font-size:12px}.res .nocost{color:var(--accent)}
 
-  .lines{padding:8px 0 0;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:2240px}
-  thead th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:right;padding:8px 7px;border-bottom:1px solid var(--line)}
+  .lines{padding:8px 0 0;overflow-x:hidden}
+  table{width:100%;border-collapse:collapse;min-width:0;table-layout:fixed}
+  thead th{font-size:9px;letter-spacing:.035em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   thead th.l{text-align:left}
-  tbody td{padding:7px 7px;border-bottom:1px solid var(--line-soft);text-align:right;vertical-align:middle}
+  th:nth-child(1),td:nth-child(1){width:28px}
+  th:nth-child(2),td:nth-child(2){width:auto}
+  th:nth-child(3),td:nth-child(3){width:48px}
+  th:nth-child(4),td:nth-child(4){width:70px}
+  th:nth-child(5),td:nth-child(5){width:108px}
+  th:nth-child(6),td:nth-child(6){width:68px}
+  th:nth-child(7),td:nth-child(7){width:92px}
+  th:nth-child(8),td:nth-child(8){width:78px}
+  th:nth-child(9),td:nth-child(9){width:62px}
+  th:nth-child(10),td:nth-child(10){width:70px}
+  th:nth-child(11),td:nth-child(11){width:70px}
+  th:nth-child(12),td:nth-child(12){width:72px}
+  th:nth-child(13),td:nth-child(13){width:74px}
+  th:nth-child(14),td:nth-child(14){width:78px}
+  th:nth-child(15),td:nth-child(15){width:74px}
+  tbody td{padding:5px 4px;border-bottom:1px solid var(--line-soft);text-align:right;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   tbody td.l{text-align:left}
   tbody tr:hover{background:#fafbfc}
-  .li-sku{font-family:var(--mono);font-weight:600;color:var(--navy);font-size:12px;white-space:nowrap}
-  .li-desc{font-size:12px;max-width:1180px;white-space:nowrap}
-  .li-unit{color:var(--muted);font-size:12px}
+  .li-sku{font-family:var(--mono);font-weight:600;color:var(--navy);font-size:11px;white-space:nowrap}
+  .li-desc{font-size:11px;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li-unit{color:var(--muted);font-size:11px}
   .li-wt{color:#2b6cb0;font-size:11px;font-family:var(--mono);background:#eef2f8;border-radius:4px;padding:1px 5px;margin-left:4px}
-  td input{width:100%;padding:6px 6px;border:1px solid var(--line);border-radius:6px;text-align:right;font-family:var(--mono);font-size:13px}
+  td input{width:100%;padding:5px 4px;border:1px solid var(--line);border-radius:6px;text-align:right;font-family:var(--mono);font-size:11px}
   td input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(28,62,113,.14)}
-  td.qty input{width:58px}td.ovr input,td.cost input,td.wovr input{width:92px}td.mar input{width:68px}
+  td.qty input{width:46px}td.ovr input,td.cost input,td.wovr input{width:100%}td.mar input{width:100%}
   td input:disabled{opacity:.4;background:#f3f4f7}
-  .calc{font-family:var(--mono);font-size:13px}.calc.muted{color:var(--muted)}
-  .refcell{font-size:12px;white-space:nowrap;color:var(--ink);min-width:120px}.refcell.missing{color:var(--muted);font-style:italic;font-size:11px}.pdim{min-width:165px}.pcnt{min-width:145px}
+  .calc{font-family:var(--mono);font-size:11px}.calc.muted{color:var(--muted)}
+  .refcell{font-size:10px;white-space:nowrap;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis}.refcell.missing{color:var(--muted);font-style:italic;font-size:9px}.pdim{min-width:0}.pcnt{min-width:0}
   .unitprice{font-weight:600}
-  .linetot{font-family:var(--mono);font-weight:600;font-size:13px}
-  .estprofit{font-family:var(--mono);font-size:12px;color:#1f7a4d;font-weight:600}
+  .linetot{font-family:var(--mono);font-weight:600;font-size:11px}
+  .estprofit{font-family:var(--mono);font-size:10px;color:#1f7a4d;font-weight:600}
   .estprofit.neg{color:#b3261e}
   .rm{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 5px;border-radius:6px}
   .rm:hover{background:#fbe9e9;color:#b3261e}
   .empty{padding:34px 16px;text-align:center;color:var(--muted);font-size:13px}
-  .warnflag{display:block;margin-top:3px;color:var(--accent);font-size:11px;line-height:1.2}
+  .warnflag{display:block;margin-top:2px;color:var(--accent);font-size:9px;line-height:1.15;white-space:normal}
 
-  .margin-missing{display:block;margin-top:3px;color:#b3261e;font-size:10px;font-weight:600;line-height:1.15}
+  .margin-missing{display:block;margin-top:2px;color:#b3261e;font-size:9px;font-weight:600;line-height:1.1;white-space:normal}
   .total-valwrap{display:flex;flex-direction:column;align-items:flex-end}
   .li-note{width:100%;margin-top:5px;padding:4px 7px;border:1px dashed var(--line);border-radius:5px;font-size:11px;color:var(--ink);font-family:var(--sans);text-align:left;background:#fcfcfd}
   .li-note::placeholder{color:#aab1c0;font-style:italic}
@@ -1591,7 +1606,7 @@ async function saveNewCustomer() {
     em:      (document.getElementById('nc_email').value   || '').trim(),
     ad:      (document.getElementById('nc_address').value || '').trim()
   }];
-  // Add to the live browser session only. Permanent customer edits belong in Accessories_Data.xlsx.
+  /* Add to live session immediately */
   COMPMAP[co] = ct;
   var dl = document.getElementById('companyList');
   if (dl && ![].slice.call(dl.options).some(function(o) { return o.value === co; })) {
@@ -1599,8 +1614,39 @@ async function saveNewCustomer() {
   }
   elCompany.value = co; onCompany();
   if (ct[0].contact) { elContact.value = ct[0].contact; applyContact(); }
-  ncSetStatus('Added for this session only. Add permanent customer changes to Accessories_Data.xlsx.', true);
-  setTimeout(closeNewCustomer, 1600);
+  /* Inject new customer into the HTML source and save */
+  var newEntry = JSON.stringify({co: co, ct: ct});
+  var src = document.documentElement.outerHTML;
+  var marker = 'const COMPANIES = [';
+  var mIdx = src.indexOf(marker);
+  if (mIdx === -1) { ncSetStatus('Could not find COMPANIES array.', false); return; }
+  var depth = 0, insertAt = -1;
+  for (var i = mIdx + marker.length - 1; i < src.length; i++) {
+    if (src[i] === '[') depth++;
+    else if (src[i] === ']') { depth--; if (depth === 0) { insertAt = i; break; } }
+  }
+  if (insertAt === -1) { ncSetStatus('Could not find end of COMPANIES array.', false); return; }
+  var checkStr = '"co":"' + co + '"';
+  if (src.indexOf(checkStr) !== -1) { ncSetStatus('That company already exists.', false); return; }
+  var updatedSrc = src.slice(0, insertAt) + ',' + newEntry + src.slice(insertAt);
+  if (!window.showSaveFilePicker) {
+    ncSetStatus('File saving not supported in this browser. Customer added for this session only.', false);
+    return;
+  }
+  try {
+    var fh = await window.showSaveFilePicker({
+      suggestedName: 'Accessories_Quote_Builder_live_products.html',
+      types: [{ description: 'HTML file', accept: {'text/html': ['.html']} }]
+    });
+    var w = await fh.createWritable();
+    await w.write(new Blob([updatedSrc], {type: 'text/html'}));
+    await w.close();
+    ncSetStatus('Saved! Share this updated file with your team.', true);
+    setTimeout(closeNewCustomer, 1400);
+  } catch(e) {
+    if (e && e.name === 'AbortError') return;
+    ncSetStatus('Save failed: ' + (e.message || e), false);
+  }
 }
 document.addEventListener('DOMContentLoaded', function() {
   var cb = document.getElementById('ncCloseBtn');
@@ -1637,7 +1683,7 @@ setToday();genQuoteNumber(false);tryAutoLoadProducts();render();
       <div id="ncStatus" style="font-size: 12px; color: rgb(31, 122, 77); min-height: 18px; margin-bottom: 12px;"></div>
       <div style="display:flex;justify-content:flex-end;gap:10px">
         <button id="ncCancelBtn" style="padding:9px 16px;border-radius:8px;border:1px solid #dfe3ea;background:#fff;color:#6b7385;font-weight:600;cursor:pointer;font-size:13px">Cancel</button>
-        <button id="ncSaveBtn" style="padding:9px 20px;border-radius:8px;border:1px solid #1c3e71;background:#1c3e71;color:#fff;font-weight:600;cursor:pointer;font-size:13px">Add for This Session</button>
+        <button id="ncSaveBtn" style="padding:9px 20px;border-radius:8px;border:1px solid #1c3e71;background:#1c3e71;color:#fff;font-weight:600;cursor:pointer;font-size:13px">Save &amp; Update HTML</button>
       </div>
     </div>
   </div>
