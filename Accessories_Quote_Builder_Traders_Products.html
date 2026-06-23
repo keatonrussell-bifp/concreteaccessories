@@ -547,11 +547,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <div class="search-wrap">
           <input id="psearch" placeholder="Search SKU or description, then click to add a line…" autocomplete="off">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--muted)">
-            <button id="pickFileBtn" class="btn ghost" style="padding:6px 10px" onclick="pickProductFile()">Select Products</button><input id="productFileInput" type="file" accept=".xlsx,.xlsm,.xls" style="display:none">
-            <span id="productStatus" style="color: var(--muted);">Click the button to reload Products.xlsx (one-time permission needed).</span>
+            <button id="pickFileBtn" class="btn ghost" style="padding:6px 10px" onclick="pickProductFile()">Select Accessories_Data.xlsx</button><input id="productFileInput" type="file" accept=".xlsx,.xlsm,.xls" style="display:none">
+            <span id="productStatus" style="color: var(--muted);">Select the Accessories_Data Excel file from accessories_quotebuilder OneDrive Folder to load Products and Customers.</span>
           </div>
           <div style="margin-top:8px;padding:8px 11px;border:1px solid var(--line-soft);border-left:3px solid var(--navy);border-radius:6px;background:rgba(28,62,113,.05);font-size:12px;line-height:1.45;color:var(--muted)">
-            <strong style="color:var(--navy)">Note:</strong> Products <em>and</em> customers both load from <strong>Products.xlsx</strong> in OneDrive. To add or edit a product, use the <strong>Products</strong> sheet; to add or edit a customer or contact, use the <strong>Customers</strong> sheet; to add or edit a sales rep, use the <strong>Traders</strong> sheet. Save the file in OneDrive, then click <strong>Select Products</strong> here to pull in the latest.
+            <strong style="color:var(--navy)">Note:</strong> Select the <strong>Accessories_Data</strong> Excel file from the <strong>accessories_quotebuilder</strong> OneDrive folder to load <strong>Products</strong> and <strong>Customers</strong>. To add or edit a product, use the <strong>Products</strong> sheet; to add or edit a customer or contact, use the <strong>Customers</strong> sheet; to add or edit a sales rep, use the <strong>Traders</strong> sheet. Save the file in OneDrive, then click <strong>Select Accessories_Data.xlsx</strong> here to pull in the latest.
           </div>
           <div class="results" id="presults"></div>
         </div>
@@ -744,7 +744,7 @@ function applyContact(){
 
 
 /* ── Product loader: File System Access API + IndexedDB handle persistence ── */
-const PRODUCT_WORKBOOK_NAME = 'Products.xlsx';
+const PRODUCT_WORKBOOK_NAME = 'Accessories_Data.xlsx';
 let productSource = '';
 
 function setProductStatus(msg, isError){
@@ -869,7 +869,7 @@ async function loadProductsFromBuffer(buffer, sourceName){
   if(!parsed.length) throw new Error('No usable products found — check column headers (SKU, Description).');
   PRODUCTS=parsed;
   productSource=sourceName||PRODUCT_WORKBOOK_NAME;
-  // Keep existing quote lines in sync when a newer Products.xlsx is selected.
+  // Keep existing quote lines in sync when a newer Accessories_Data.xlsx is selected.
   const pmap=new Map(PRODUCTS.map(p=>[String(p.s||'').toUpperCase(),p]));
   lines.forEach(l=>{
     const p=pmap.get(String(l.sku||'').toUpperCase());
@@ -917,7 +917,7 @@ async function loadProductsFromBuffer(buffer, sourceName){
 
   setProductStatus(`✓ ${PRODUCTS.length} products loaded from ${productSource}${custMsg}${traderMsg}`);
   const btn=document.getElementById('pickFileBtn');
-  if(btn) btn.textContent='Select Products';
+  if(btn) btn.textContent='Select Accessories_Data.xlsx';
   if(ps&&ps.value.trim())runSearch();
 }
 
@@ -925,7 +925,7 @@ async function loadFromHandle(handle){
   /* verify/request read permission */
   let perm=await handle.queryPermission({mode:'read'});
   if(perm!=='granted') perm=await handle.requestPermission({mode:'read'});
-  if(perm!=='granted') throw new Error('Permission denied — click "Select Products.xlsx" to choose the file.');
+  if(perm!=='granted') throw new Error('Permission denied — click "Select Accessories_Data.xlsx" to choose the file.');
   const file=await handle.getFile();
   await loadProductsFromBuffer(await file.arrayBuffer(), file.name);
 }
@@ -986,27 +986,27 @@ async function tryAutoLoadProducts(){
       let perm='prompt';
       try{ perm=await handle.queryPermission({mode:'read'}); }catch(e){}
       if(perm==='granted'){
-        setProductStatus('Re-loading Products.xlsx…');
+        setProductStatus('Re-loading Accessories_Data.xlsx…');
         try{
           const file=await handle.getFile();
           await loadProductsFromBuffer(await file.arrayBuffer(), file.name);
           return;
         }catch(e){
-          setProductStatus(`Could not read Products.xlsx: ${e.message} — click the button to re-select.`, true);
+          setProductStatus(`Could not read Accessories_Data.xlsx: ${e.message} — click the button to re-select.`, true);
           return;
         }
       }else{
         /* Permission needs a click — update button label and status, wait for user */
         const btn=document.getElementById('pickFileBtn');
-        if(btn) btn.textContent='Select Products';
-        setProductStatus('Click the button to reload Products.xlsx (one-time permission needed).');
+        if(btn) btn.textContent='Select Accessories_Data.xlsx';
+        setProductStatus('Select the Accessories_Data Excel file from accessories_quotebuilder OneDrive Folder to load Products and Customers.');
         return;
       }
     }
   }catch(e){ /* IndexedDB unavailable (private browsing etc) */ }
 
   /* 2 — first ever run: prompt user */
-  setProductStatus('Click "Select Products.xlsx" to link your workbook — Products, Customers, and Traders load from that file.');
+  setProductStatus('Select the Accessories_Data Excel file from accessories_quotebuilder OneDrive Folder to load Products and Customers.');
 }
 
 /* product search */
@@ -1025,7 +1025,7 @@ function closeRes(){pr.classList.remove('open');hiIdx=-1;}
 function paintHi(){[...pr.children].forEach((c,i)=>c.classList.toggle('hi',i===hiIdx));const n=pr.children[hiIdx];if(n)n.scrollIntoView({block:'nearest'});}
 function runSearch(){
   const q=ps.value.trim().toLowerCase();if(!q){closeRes();return;}
-  if(!PRODUCTS.length){pr.innerHTML='<div class="res"><span class="rd">Load Products.xlsx first.</span></div>';pr.classList.add('open');return;}
+  if(!PRODUCTS.length){pr.innerHTML='<div class="res"><span class="rd">Load Accessories_Data.xlsx first.</span></div>';pr.classList.add('open');return;}
   curResults=PRODUCTS.filter(p=>(p.s+' '+p.d).toLowerCase().includes(q)).slice(0,40);
   if(!curResults.length){pr.innerHTML='<div class="res"><span class="rd">No matches</span></div>';pr.classList.add('open');return;}
   pr.innerHTML=curResults.map((p,i)=>`<div class="res" data-i="${i}"><span class="sku">${p.s}</span><span class="rd">${esc(p.d)}</span><span class="rc ${p.c==null?'nocost':''}">${p.c==null?'no cost':fmt4(p.c)}</span></div>`).join('');
