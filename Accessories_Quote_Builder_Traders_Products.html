@@ -1142,7 +1142,28 @@ function setTotals(b,f,g,p,tax){
   var pe=document.getElementById('tProfit');
   if(pe){pe.textContent=fmt(p||0);pe.parentElement.style.color=p<0?'#b3261e':'#1f7a4d';}
 }
-function upd(id,field,val){const l=lines.find(x=>x.id===id);if(!l)return;l[field]=val;if(field==='override'||field==='margin')render();else recalcLight();clearSaved();}
+function upd(id,field,val){
+  const l=lines.find(x=>x.id===id);if(!l)return;
+  l[field]=val;
+  if(field==='override'){
+    render();
+  }else if(field==='margin'){
+    recalcLight();
+    syncMarginWarning(id);
+  }else{
+    recalcLight();
+  }
+  clearSaved();
+}
+function syncMarginWarning(id){
+  const l=lines.find(x=>x.id===id);const tr=document.querySelector(`tr[data-id="${id}"]`);if(!l||!tr)return;
+  const cell=tr.querySelector('td.mar');if(!cell)return;
+  const missing=(l.override===''||l.override==null)&&(l.margin===''||l.margin==null);
+  const existing=cell.querySelector('.margin-missing');
+  if(missing&&!existing)cell.insertAdjacentHTML('beforeend','<span class="margin-missing">Margin not entered</span>');
+  else if(!missing&&existing)existing.remove();
+}
+
 function recalcLight(){
   const {out,subtotal,sumFreight,grand,sumProfit,tax}=compute();
   out.forEach(r=>{const tr=document.querySelector(`tr[data-id="${r.l.id}"]`);if(!tr)return;const tds=tr.querySelectorAll('td');
