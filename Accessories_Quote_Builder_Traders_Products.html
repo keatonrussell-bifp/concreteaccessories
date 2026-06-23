@@ -430,8 +430,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .regen{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#cfe0fb;border-radius:6px;cursor:pointer;padding:0 9px;font-size:14px}
   .regen:hover{background:rgba(255,255,255,.2)}
 
-  .wrap{max-width:1780px;margin:0 auto;padding:22px}
-  .grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;align-items:start}
+  .wrap{max-width:2140px;margin:0 auto;padding:22px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(20,30,60,.04)}
   .card h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0;padding:14px 16px 0;display:flex;justify-content:space-between;align-items:center}
 
@@ -460,19 +460,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .res .rc{font-family:var(--mono);font-size:12px}.res .nocost{color:var(--accent)}
 
   .lines{padding:8px 0 0;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:1420px}
+  table{width:100%;border-collapse:collapse;min-width:1680px}
   thead th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:right;padding:8px 7px;border-bottom:1px solid var(--line)}
   thead th.l{text-align:left}
   tbody td{padding:7px 7px;border-bottom:1px solid var(--line-soft);text-align:right;vertical-align:middle}
   tbody td.l{text-align:left}
   tbody tr:hover{background:#fafbfc}
   .li-sku{font-family:var(--mono);font-weight:600;color:var(--navy);font-size:12px;white-space:nowrap}
-  .li-desc{font-size:12px;max-width:760px}
+  .li-desc{font-size:12px;max-width:980px;white-space:nowrap}
   .li-unit{color:var(--muted);font-size:12px}
   .li-wt{color:#2b6cb0;font-size:11px;font-family:var(--mono);background:#eef2f8;border-radius:4px;padding:1px 5px;margin-left:4px}
   td input{width:100%;padding:6px 6px;border:1px solid var(--line);border-radius:6px;text-align:right;font-family:var(--mono);font-size:13px}
   td input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(28,62,113,.14)}
-  td.qty input{width:58px}td.ovr input,td.cost input,td.wovr input{width:80px}td.mar input{width:62px}
+  td.qty input{width:58px}td.ovr input,td.cost input,td.wovr input{width:92px}td.mar input{width:68px}
   td input:disabled{opacity:.4;background:#f3f4f7}
   .calc{font-family:var(--mono);font-size:13px}.calc.muted{color:var(--muted)}
   .unitprice{font-weight:600}
@@ -551,7 +551,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   <div class="meta">
     <div><label>Quote #</label><div class="qno-wrap"><input id="qno" placeholder="auto"><button class="regen" title="Regenerate number" onclick="genQuoteNumber(true)">↻</button></div></div>
     <div><label>Quote Date</label><input id="qdate" type="date"></div>
-    <div><label>Sales Rep</label><select id="qrep" style="background:#1c3e71;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:6px 8px;font-size:14px;font-family:inherit;min-width:148px"></select></div>
+    <div><label>Sales Rep</label><select id="qrep" style="background:#1c3e71;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:6px 8px;font-size:14px;font-family:inherit;min-width:148px"><option value="">Load Accessories_Data.xlsx</option></select></div>
   </div>
 </div>
 
@@ -580,7 +580,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
               <th>Weight</th>
               <th>Repl. Cost</th>
               <th>Margin %</th>
-              <th>Unit Wt Override</th>
+              <th>Override Wt</th>
               <th>Override $</th>
               <th>Freight/Unit</th>
               <th>Unit Price</th>
@@ -707,10 +707,9 @@ const fmtWeight=(n)=>{
   return x.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:4});
 };
 const getLineUnitWeight=(l)=>{
-  const o=Number(l&&l.weightOverride);
-  if(Number.isFinite(o))return o;
-  const w=Number(l&&l.w);
-  return Number.isFinite(w)?w:null;
+  if(l&&hasEnteredNumber(l.weightOverride))return Number(String(l.weightOverride).replace(/[$,]/g,''));
+  if(l&&hasEnteredNumber(l.w))return Number(String(l.w).replace(/[$,]/g,''));
+  return null;
 };
 const fmtLineWeight=(l)=>{
   const unitWt=getLineUnitWeight(l);
@@ -821,8 +820,13 @@ async function idbSet(key,val){
 function normHeader(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'');}
 function toNumOrNull(v){
   if(v===''||v==null)return null;
-  const n=Number(String(v).replace(/[$,]/g,''));
+  const raw=String(v).trim();
+  if(raw==='')return null;
+  const n=Number(raw.replace(/[$,]/g,''));
   return Number.isFinite(n)?n:null;
+}
+function hasEnteredNumber(v){
+  return v!=='' && v!=null && Number.isFinite(Number(String(v).replace(/[$,]/g,'')));
 }
 function rowsToProducts(rows){
   if(!rows||!rows.length)return [];
@@ -832,7 +836,7 @@ function rowsToProducts(rows){
   const iCat=idx(['category']);
   const iDesc=idx(['description','productdescription']);
   const iUnit=idx(['unit','uom']);
-  const iWeight=idx(['unitweight','weight']);
+  const iWeight=idx(['unitweight','unitwt','unitwgt','weight','wt','weightlbs','weightlb','unitweightlbs','unitweightlb','unitwtlbs','unitwtlb']);
   const iCost=idx(['cost','unitcost']);
   if(iSKU==null||iSKU<0||iDesc==null||iDesc<0) throw new Error('Products sheet must have SKU and Description columns.');
   return rows.slice(1).map(r=>({
@@ -840,7 +844,7 @@ function rowsToProducts(rows){
     cat:iCat>=0?String(r[iCat]??'').trim():'',
     d:String(r[iDesc]??'').trim(),
     u:String(r[iUnit]??'EA').trim()||'EA',
-    w:toNumOrNull(r[iWeight]),
+    w:iWeight>=0?toNumOrNull(r[iWeight]):null,
     c:toNumOrNull(r[iCost])
   })).filter(p=>p.s&&p.d);
 }
@@ -1089,7 +1093,7 @@ function compute(){
       else if(cost>0)baseUnit=cost/(1-margin/100);
     }
     if(qty>0&&cost<=0&&ovr==null)warns.push('no cost — set repl. cost or override');
-    if(!Number.isFinite(Number(l.w))&&!Number.isFinite(Number(l.weightOverride)))warns.push('No weight - set unit weight override');
+    if(!Number.isFinite(getLineUnitWeight(l)))warns.push('No weight - set unit weight override');
     const priced=baseUnit!=null&&qty>0;
     const baseExt=priced?qty*baseUnit:0;
     return {l,qty,baseUnit,baseExt,priced,warns};
