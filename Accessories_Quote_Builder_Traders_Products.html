@@ -503,6 +503,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .taxrate{display:flex;align-items:center;gap:4px}
   .taxrate input{width:74px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;text-align:right;font-family:var(--mono);font-size:13px}
   .taxrate input:disabled{background:#f3f4f7;color:#aab1c0}
+  .tax-options{display:none;align-items:center;gap:12px;margin-left:4px;white-space:nowrap;font-size:12px;color:var(--muted)}
+  .tax-options.on{display:flex}
+  .tax-options label{font-weight:600;color:var(--muted);gap:5px}
   .trow.taxline{display:none}
   .trow.taxline.on{display:flex}
   .trow.final{display:flex;font-size:18px;font-weight:700;margin-top:4px;padding-top:8px;border-top:1px solid var(--line)}
@@ -592,6 +595,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           <div class="trow"><span class="lbl">Freight (by price share)</span><span class="val" id="tFreight">$0.00</span></div>
           <div class="taxbox">
             <label><input id="includeTax" type="checkbox"> Include tax?</label>
+            <div class="tax-options" id="taxFreightOptions">
+              <label><span>Include freight?</span> <input id="taxIncludeFreight" type="checkbox" checked></label>
+              <label><span>Exclude freight?</span> <input id="taxExcludeFreight" type="checkbox"></label>
+            </div>
             <div class="taxrate"><input id="taxRate" type="number" min="0" max="100" step="0.001" placeholder="0" disabled><span>%</span></div>
           </div>
           <div class="trow taxline" id="taxLine"><span class="lbl">Sales Tax</span><span class="val" id="tTax">$0.00</span></div>
@@ -1096,16 +1103,25 @@ function compute(){
     if(profit!=null) sumProfit+=profit;
     return {l:r.l,qty:r.qty,baseUnit:r.baseUnit,fpu,unit,lineTot,profit,warn:r.warn};
   });
-  const tax=computeTax(grand);
+  const tax=computeTax(subtotal,grand);
   return {out,subtotal,sumFreight,grand,sumProfit,tax};
 }
 function fmtRate(n){return (Number(n)||0).toFixed(3).replace(/0+$/,'').replace(/\.$/,'');}
-function computeTax(amount){
+function taxIncludesFreight(){
+  const inc=document.getElementById('taxIncludeFreight');
+  const exc=document.getElementById('taxExcludeFreight');
+  if(exc&&exc.checked)return false;
+  if(inc&&!inc.checked&&exc&&!exc.checked)inc.checked=true;
+  return true;
+}
+function computeTax(subtotalBeforeFreight,quoteBeforeTax){
   const include=!!(document.getElementById('includeTax')&&document.getElementById('includeTax').checked);
   const rateEl=document.getElementById('taxRate');
   const rate=include?(parseFloat(rateEl&&rateEl.value)||0):0;
-  const taxAmount=include?amount*(rate/100):0;
-  return {include,rate,taxAmount,finalTotal:amount+taxAmount};
+  const includeFreight=taxIncludesFreight();
+  const taxableAmount=includeFreight?quoteBeforeTax:subtotalBeforeFreight;
+  const taxAmount=include?taxableAmount*(rate/100):0;
+  return {include,rate,includeFreight,taxableAmount,taxAmount,finalTotal:quoteBeforeTax+taxAmount};
 }
 function render(){
   const tb=document.getElementById('lbody');
@@ -1126,12 +1142,14 @@ function render(){
   setTotals(subtotal,sumFreight,grand,sumProfit,tax);clearSaved();
 }
 function setTotals(b,f,g,p,tax){
-  tax=tax||computeTax(g);
+  tax=tax||computeTax(b,g);
   document.getElementById('tBase').textContent=fmt(b);
   document.getElementById('tFreight').textContent=fmt(f);
   const tGrand=document.getElementById('tGrand'); if(tGrand)tGrand.textContent=fmt(g);
   const taxInput=document.getElementById('taxRate');
   if(taxInput)taxInput.disabled=!tax.include;
+  const taxOpts=document.getElementById('taxFreightOptions');
+  if(taxOpts)taxOpts.classList.toggle('on',tax.include);
   const taxLine=document.getElementById('taxLine');
   if(taxLine)taxLine.classList.toggle('on',tax.include);
   const tTax=document.getElementById('tTax'),tFinal=document.getElementById('tFinal');
@@ -1179,8 +1197,24 @@ function recalcLight(){
 }
 function removeLine(id){lines=lines.filter(x=>x.id!==id);render();}
 document.getElementById('freight').addEventListener('input',()=>{recalcLight();clearSaved();});
-document.getElementById('includeTax').addEventListener('change',()=>{recalcLight();clearSaved();});
+document.getElementById('includeTax').addEventListener('change',()=>{
+  const inc=document.getElementById('taxIncludeFreight'),exc=document.getElementById('taxExcludeFreight');
+  if(document.getElementById('includeTax').checked&&inc&&!inc.checked&&exc&&!exc.checked)inc.checked=true;
+  recalcLight();clearSaved();
+});
 document.getElementById('taxRate').addEventListener('input',()=>{recalcLight();clearSaved();});
+document.getElementById('taxIncludeFreight').addEventListener('change',e=>{
+  const exc=document.getElementById('taxExcludeFreight');
+  if(e.target.checked&&exc)exc.checked=false;
+  if(!e.target.checked&&exc&&!exc.checked)e.target.checked=true;
+  recalcLight();clearSaved();
+});
+document.getElementById('taxExcludeFreight').addEventListener('change',e=>{
+  const inc=document.getElementById('taxIncludeFreight');
+  if(e.target.checked&&inc)inc.checked=false;
+  if(!e.target.checked&&inc&&!inc.checked)e.target.checked=true;
+  recalcLight();clearSaved();
+});
 document.getElementById('qdate').addEventListener('change',()=>genQuoteNumber(true));
 document.getElementById('orderNotes').addEventListener('input',clearSaved);
 
@@ -1191,7 +1225,7 @@ function snapshot(){
     qrep:document.getElementById('qrep').value,company:elCompany.value,contact:elContact.value,
     phoneType:elPhoneType.value,phone:elPhone.value,email:elEmail.value,address:elAddress.value,
     freight:document.getElementById('freight').value,
-    includeTax:tax.include,taxRate:document.getElementById('taxRate').value,
+    includeTax:tax.include,taxRate:document.getElementById('taxRate').value,taxIncludeFreight:tax.includeFreight,
     orderNotes:document.getElementById('orderNotes').value,
     lines:lines.map(l=>({sku:l.sku,desc:l.desc,unit:l.unit,w:l.w==null?null:l.w,cost:l.cost,qty:l.qty,margin:l.margin,override:l.override,note:l.note||''})),
     total:tax.finalTotal,savedAt:Date.now()};
@@ -1204,6 +1238,9 @@ function restore(q){
   document.getElementById('freight').value=q.freight||'0';
   document.getElementById('includeTax').checked=!!q.includeTax;
   document.getElementById('taxRate').value=q.taxRate||'';
+  const tif=q.taxIncludeFreight!==false;
+  document.getElementById('taxIncludeFreight').checked=tif;
+  document.getElementById('taxExcludeFreight').checked=!tif;
   document.getElementById('taxRate').disabled=!document.getElementById('includeTax').checked;
   document.getElementById('orderNotes').value=q.orderNotes||'';
   const pmap=new Map(PRODUCTS.map(p=>[String(p.s||'').toUpperCase(),p]));
@@ -1244,7 +1281,7 @@ function delHistory(i){let hist=loadHist();hist.splice(i,1);saveHist(hist);rende
 function resetAll(){
   if(!confirm('Clear the entire quote?'))return;
   lines=[];['company','contact','phone','email','address'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('freight').value='0';document.getElementById('includeTax').checked=false;document.getElementById('taxRate').value='';document.getElementById('taxRate').disabled=true;
+  document.getElementById('freight').value='0';document.getElementById('includeTax').checked=false;document.getElementById('taxRate').value='';document.getElementById('taxRate').disabled=true;document.getElementById('taxIncludeFreight').checked=true;document.getElementById('taxExcludeFreight').checked=false;
   document.getElementById('qrep').value=DEFAULT_REP;document.getElementById('orderNotes').value='';elContactList.innerHTML='';
   setToday();genQuoteNumber(true);render();
 }
@@ -1310,16 +1347,14 @@ function makePdf(){
   /* table */
   y=Math.max(by,ry)+18;
   // Fixed PDF table geometry: keep description text in its own lane so it wraps
-  // before the price columns. This prevents long descriptions from running into
-  // UNIT PRICE / LINE TOTAL values on generated quote PDFs.
-  const COL={qty:78,unit:96,weight:138,desc:178,price:486,total:PT.mr-6};
-  const DESC_W=250;
+  // before the price columns. Unit weight is intentionally not printed on quotes.
+  const COL={qty:78,unit:108,desc:154,price:486,total:PT.mr-6};
+  const DESC_W=292;
   function tableHeader(yy){
     doc.setFillColor(...NAVY); doc.rect(PT.ml,yy,PT.w,20,'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
     doc.text('QTY',COL.qty,yy+13,{align:'right'});
     doc.text('UNIT',COL.unit,yy+13);
-    doc.text('WEIGHT',COL.weight,yy+13,{align:'right'});
     doc.text('DESCRIPTION',COL.desc,yy+13);
     doc.text('UNIT PRICE',COL.price,yy+13,{align:'right'});
     doc.text('LINE TOTAL',COL.total,yy+13,{align:'right'});
@@ -1338,7 +1373,6 @@ function makePdf(){
     doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...dark);
     doc.text(String(r.qty),COL.qty,ty,{align:'right'});
     doc.text(String(r.l.unit),COL.unit,ty);
-    doc.text(fmtLineWeight(r.l),COL.weight,ty,{align:'right'});
     doc.text(descLines,COL.desc,ty);
     doc.text(fmt(r.unit),COL.price,ty,{align:'right'});
     doc.text(fmt(r.lineTot),COL.total,ty,{align:'right'});
@@ -1356,7 +1390,7 @@ function makePdf(){
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...dark);
     doc.text('Quote Subtotal',466,totalY+18,{align:'right'});
     doc.text(fmt(grand),PT.mr-6,totalY+18,{align:'right'});
-    doc.text(`Sales Tax (${fmtRate(tax.rate)}%)`,466,totalY+34,{align:'right'});
+    doc.text(`Sales Tax (${fmtRate(tax.rate)}%, ${tax.includeFreight?'incl. freight':'excl. freight'})`,466,totalY+34,{align:'right'});
     doc.text(fmt(tax.taxAmount),PT.mr-6,totalY+34,{align:'right'});
     doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(...NAVY);
     doc.text('Total',466,totalY+55,{align:'right'});
@@ -1433,7 +1467,7 @@ function emailQuote(){
     lines2,
     '',
     tax.include?`Quote Subtotal: ${fmt(grand)}`:`Quote Total: ${fmt(grand)}`,
-    tax.include?`Sales Tax (${fmtRate(tax.rate)}%): ${fmt(tax.taxAmount)}`:'',
+    tax.include?`Sales Tax (${fmtRate(tax.rate)}%, ${tax.includeFreight?'incl. freight':'excl. freight'}): ${fmt(tax.taxAmount)}`:'',
     tax.include?`Quote Total: ${fmt(tax.finalTotal)}`:'',
     notesBlock,
     '',
