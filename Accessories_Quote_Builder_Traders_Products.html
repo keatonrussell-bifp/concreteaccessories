@@ -430,7 +430,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .regen{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#cfe0fb;border-radius:6px;cursor:pointer;padding:0 9px;font-size:14px}
   .regen:hover{background:rgba(255,255,255,.2)}
 
-  .wrap{max-width:2140px;margin:0 auto;padding:22px}
+  .wrap{max-width:2520px;margin:0 auto;padding:22px}
   .grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(20,30,60,.04)}
   .card h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0;padding:14px 16px 0;display:flex;justify-content:space-between;align-items:center}
@@ -460,14 +460,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .res .rc{font-family:var(--mono);font-size:12px}.res .nocost{color:var(--accent)}
 
   .lines{padding:8px 0 0;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:1680px}
+  table{width:100%;border-collapse:collapse;min-width:2240px}
   thead th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:right;padding:8px 7px;border-bottom:1px solid var(--line)}
   thead th.l{text-align:left}
   tbody td{padding:7px 7px;border-bottom:1px solid var(--line-soft);text-align:right;vertical-align:middle}
   tbody td.l{text-align:left}
   tbody tr:hover{background:#fafbfc}
   .li-sku{font-family:var(--mono);font-weight:600;color:var(--navy);font-size:12px;white-space:nowrap}
-  .li-desc{font-size:12px;max-width:980px;white-space:nowrap}
+  .li-desc{font-size:12px;max-width:1180px;white-space:nowrap}
   .li-unit{color:var(--muted);font-size:12px}
   .li-wt{color:#2b6cb0;font-size:11px;font-family:var(--mono);background:#eef2f8;border-radius:4px;padding:1px 5px;margin-left:4px}
   td input{width:100%;padding:6px 6px;border:1px solid var(--line);border-radius:6px;text-align:right;font-family:var(--mono);font-size:13px}
@@ -475,6 +475,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   td.qty input{width:58px}td.ovr input,td.cost input,td.wovr input{width:92px}td.mar input{width:68px}
   td input:disabled{opacity:.4;background:#f3f4f7}
   .calc{font-family:var(--mono);font-size:13px}.calc.muted{color:var(--muted)}
+  .refcell{font-size:12px;white-space:nowrap;color:var(--ink);min-width:120px}.refcell.missing{color:var(--muted);font-style:italic;font-size:11px}.pdim{min-width:165px}.pcnt{min-width:145px}
   .unitprice{font-weight:600}
   .linetot{font-family:var(--mono);font-weight:600;font-size:13px}
   .estprofit{font-family:var(--mono);font-size:12px;color:#1f7a4d;font-weight:600}
@@ -578,6 +579,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
               <th class="l">Item</th>
               <th>Qty</th>
               <th>Weight</th>
+              <th>Pallet Dim</th>
+              <th>Pallet Wt.</th>
+              <th>Bdl/Cnt per Pallet</th>
               <th>Repl. Cost</th>
               <th>Margin %</th>
               <th>Override Wt</th>
@@ -722,6 +726,11 @@ const formatLineWarnings=(warns)=>{
   const arr=Array.isArray(warns)?warns:(warns?[warns]:[]);
   return arr.map(w=>`<span class="warnflag">⚠ ${esc(w)}</span>`).join('');
 };
+const refVal=(v)=>{
+  const t=String(v??'').trim();
+  return t?esc(t):'does not exist';
+};
+const refMissing=(v)=>String(v??'').trim()?false:true;
 const marginMissing=()=>lines.some(l=>(l.override===''||l.override==null)&&(l.margin===''||l.margin==null));
 const esc=(s)=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const escAttr=(s)=>esc(s).replace(/"/g,'&quot;');
@@ -837,6 +846,9 @@ function rowsToProducts(rows){
   const iDesc=idx(['description','productdescription']);
   const iUnit=idx(['unit','uom']);
   const iWeight=idx(['unitweight','unitwt','unitwgt','weight','wt','weightlbs','weightlb','unitweightlbs','unitweightlb','unitwtlbs','unitwtlb']);
+  const iPalletDim=idx(['palletdimensions','palletdimension','palletdim','palletdims','palletsize']);
+  const iPalletWt=idx(['palletwt','palletweight','palletwgt','palletweightlbs','palletwtlbs']);
+  const iBdlCntPerPallet=idx(['bdlcntperpallet','bdlcountperpallet','bundlecountperpallet','bundlecntperpallet','bundlesperpallet','bdlperpallet','cntperpallet','countperpallet']);
   const iCost=idx(['cost','unitcost']);
   if(iSKU==null||iSKU<0||iDesc==null||iDesc<0) throw new Error('Products sheet must have SKU and Description columns.');
   return rows.slice(1).map(r=>({
@@ -845,6 +857,9 @@ function rowsToProducts(rows){
     d:String(r[iDesc]??'').trim(),
     u:String(r[iUnit]??'EA').trim()||'EA',
     w:iWeight>=0?toNumOrNull(r[iWeight]):null,
+    palletDim:iPalletDim>=0?String(r[iPalletDim]??'').trim():'',
+    palletWt:iPalletWt>=0?String(r[iPalletWt]??'').trim():'',
+    bdlCntPerPallet:iBdlCntPerPallet>=0?String(r[iBdlCntPerPallet]??'').trim():'',
     c:toNumOrNull(r[iCost])
   })).filter(p=>p.s&&p.d);
 }
@@ -913,7 +928,12 @@ async function loadProductsFromBuffer(buffer, sourceName){
   const pmap=new Map(PRODUCTS.map(p=>[String(p.s||'').toUpperCase(),p]));
   lines.forEach(l=>{
     const p=pmap.get(String(l.sku||'').toUpperCase());
-    if(p&&p.w!=null)l.w=p.w;
+    if(p){
+      l.w=p.w==null?null:p.w;
+      l.palletDim=p.palletDim||'';
+      l.palletWt=p.palletWt||'';
+      l.bdlCntPerPallet=p.bdlCntPerPallet||'';
+    }
   });
 
   /* Customers sheet (optional) — refreshes company/contact list when present */
@@ -1073,7 +1093,7 @@ function runSearch(){
   hiIdx=0;paintHi();pr.classList.add('open');
 }
 function addLine(p){
-  lines.push({id:uid++,sku:p.s,desc:p.d,unit:p.u||'EA',w:p.w==null?null:p.w,weightOverride:'',cost:p.c==null?'':p.c,qty:1,margin:'',override:'',note:''});
+  lines.push({id:uid++,sku:p.s,desc:p.d,unit:p.u||'EA',w:p.w==null?null:p.w,palletDim:p.palletDim||'',palletWt:p.palletWt||'',bdlCntPerPallet:p.bdlCntPerPallet||'',weightOverride:'',cost:p.c==null?'':p.c,qty:1,margin:'',override:'',note:''});
   ps.value='';closeRes();ps.focus();render();
 }
 
@@ -1143,6 +1163,9 @@ function render(){
     <td class="l"><div class="li-sku">${l.sku}</div><div class="li-desc">${esc(l.desc)} <span class="li-unit">· ${l.unit}</span><span class="warnwrap">${formatLineWarnings(r.warns)}</span></div><input class="li-note" value="${escAttr(l.note||'')}" placeholder="Line note (optional)" oninput="upd(${l.id},'note',this.value)"></td>
     <td class="qty"><input type="number" min="0" step="1" value="${l.qty}" oninput="upd(${l.id},'qty',this.value)"></td>
     <td class="calc weight">${fmtLineWeight(l)}</td>
+    <td class="refcell pdim ${refMissing(l.palletDim)?'missing':''}">${refVal(l.palletDim)}</td>
+    <td class="refcell ${refMissing(l.palletWt)?'missing':''}">${refVal(l.palletWt)}</td>
+    <td class="refcell pcnt ${refMissing(l.bdlCntPerPallet)?'missing':''}">${refVal(l.bdlCntPerPallet)}</td>
     <td class="cost"><input type="number" min="0" step="0.0001" value="${l.cost}" oninput="upd(${l.id},'cost',this.value)"></td>
     <td class="mar"><input type="number" min="0" max="99.9" step="0.1" value="${l.margin}" ${ovrSet?'disabled':''} oninput="upd(${l.id},'margin',this.value)">${(!ovrSet&&(l.margin===''||l.margin==null))?'<span class="margin-missing">Margin not entered</span>':''}</td>
     <td class="wovr"><input type="number" min="0" step="0.0001" value="${l.weightOverride||''}" placeholder="—" oninput="upd(${l.id},'weightOverride',this.value)"></td>
@@ -1198,11 +1221,11 @@ function recalcLight(){
   const {out,subtotal,sumFreight,grand,sumProfit,tax}=compute();
   out.forEach(r=>{const tr=document.querySelector(`tr[data-id="${r.l.id}"]`);if(!tr)return;const tds=tr.querySelectorAll('td');
     tds[3].textContent=fmtLineWeight(r.l);
-    tds[8].textContent=r.fpu!=null?fmt4(r.fpu):'—';tds[8].className='calc '+(r.fpu!=null&&r.fpu!==0?'':'muted');
-    tds[9].textContent=r.unit!=null?fmt(r.unit):'—';
-    tds[10].textContent=r.lineTot!=null?fmt(r.lineTot):'—';
-    tds[11].textContent=r.profit!=null?fmt(r.profit):'—';
-    tds[11].className='estprofit'+(r.profit!=null&&r.profit<0?' neg':'')+'';
+    tds[11].textContent=r.fpu!=null?fmt4(r.fpu):'—';tds[11].className='calc '+(r.fpu!=null&&r.fpu!==0?'':'muted');
+    tds[12].textContent=r.unit!=null?fmt(r.unit):'—';
+    tds[13].textContent=r.lineTot!=null?fmt(r.lineTot):'—';
+    tds[14].textContent=r.profit!=null?fmt(r.profit):'—';
+    tds[14].className='estprofit'+(r.profit!=null&&r.profit<0?' neg':'')+'';
     const ww=tr.querySelector('.warnwrap');
     if(ww)ww.innerHTML=formatLineWarnings(r.warns);});
   setTotals(subtotal,sumFreight,grand,sumProfit,tax);
@@ -1239,7 +1262,7 @@ function snapshot(){
     freight:document.getElementById('freight').value,
     includeTax:tax.include,taxRate:document.getElementById('taxRate').value,taxIncludeFreight:tax.includeFreight,
     orderNotes:document.getElementById('orderNotes').value,
-    lines:lines.map(l=>({sku:l.sku,desc:l.desc,unit:l.unit,w:l.w==null?null:l.w,weightOverride:l.weightOverride||'',cost:l.cost,qty:l.qty,margin:l.margin,override:l.override,note:l.note||''})),
+    lines:lines.map(l=>({sku:l.sku,desc:l.desc,unit:l.unit,w:l.w==null?null:l.w,palletDim:l.palletDim||'',palletWt:l.palletWt||'',bdlCntPerPallet:l.bdlCntPerPallet||'',weightOverride:l.weightOverride||'',cost:l.cost,qty:l.qty,margin:l.margin,override:l.override,note:l.note||''})),
     total:tax.finalTotal,savedAt:Date.now()};
 }
 function restore(q){
@@ -1258,7 +1281,7 @@ function restore(q){
   const pmap=new Map(PRODUCTS.map(p=>[String(p.s||'').toUpperCase(),p]));
   uid=1;lines=(q.lines||[]).map(l=>{
     const p=pmap.get(String(l.sku||'').toUpperCase());
-    return {id:uid++,sku:l.sku,desc:l.desc,unit:l.unit||'EA',w:l.w!=null?l.w:(p&&p.w!=null?p.w:null),weightOverride:l.weightOverride||'',cost:l.cost,qty:l.qty,margin:l.margin!=null?l.margin:'',override:l.override||'',note:l.note||''};
+    return {id:uid++,sku:l.sku,desc:l.desc,unit:l.unit||'EA',w:l.w!=null?l.w:(p&&p.w!=null?p.w:null),palletDim:l.palletDim||((p&&p.palletDim)||''),palletWt:l.palletWt||((p&&p.palletWt)||''),bdlCntPerPallet:l.bdlCntPerPallet||((p&&p.bdlCntPerPallet)||''),weightOverride:l.weightOverride||'',cost:l.cost,qty:l.qty,margin:l.margin!=null?l.margin:'',override:l.override||'',note:l.note||''};
   });
   render();
 }
@@ -1568,7 +1591,7 @@ async function saveNewCustomer() {
     em:      (document.getElementById('nc_email').value   || '').trim(),
     ad:      (document.getElementById('nc_address').value || '').trim()
   }];
-  /* Add to live session immediately */
+  // Add to the live browser session only. Permanent customer edits belong in Accessories_Data.xlsx.
   COMPMAP[co] = ct;
   var dl = document.getElementById('companyList');
   if (dl && ![].slice.call(dl.options).some(function(o) { return o.value === co; })) {
@@ -1576,39 +1599,8 @@ async function saveNewCustomer() {
   }
   elCompany.value = co; onCompany();
   if (ct[0].contact) { elContact.value = ct[0].contact; applyContact(); }
-  /* Inject new customer into the HTML source and save */
-  var newEntry = JSON.stringify({co: co, ct: ct});
-  var src = document.documentElement.outerHTML;
-  var marker = 'const COMPANIES = [';
-  var mIdx = src.indexOf(marker);
-  if (mIdx === -1) { ncSetStatus('Could not find COMPANIES array.', false); return; }
-  var depth = 0, insertAt = -1;
-  for (var i = mIdx + marker.length - 1; i < src.length; i++) {
-    if (src[i] === '[') depth++;
-    else if (src[i] === ']') { depth--; if (depth === 0) { insertAt = i; break; } }
-  }
-  if (insertAt === -1) { ncSetStatus('Could not find end of COMPANIES array.', false); return; }
-  var checkStr = '"co":"' + co + '"';
-  if (src.indexOf(checkStr) !== -1) { ncSetStatus('That company already exists.', false); return; }
-  var updatedSrc = src.slice(0, insertAt) + ',' + newEntry + src.slice(insertAt);
-  if (!window.showSaveFilePicker) {
-    ncSetStatus('File saving not supported in this browser. Customer added for this session only.', false);
-    return;
-  }
-  try {
-    var fh = await window.showSaveFilePicker({
-      suggestedName: 'Accessories_Quote_Builder_live_products.html',
-      types: [{ description: 'HTML file', accept: {'text/html': ['.html']} }]
-    });
-    var w = await fh.createWritable();
-    await w.write(new Blob([updatedSrc], {type: 'text/html'}));
-    await w.close();
-    ncSetStatus('Saved! Share this updated file with your team.', true);
-    setTimeout(closeNewCustomer, 1400);
-  } catch(e) {
-    if (e && e.name === 'AbortError') return;
-    ncSetStatus('Save failed: ' + (e.message || e), false);
-  }
+  ncSetStatus('Added for this session only. Add permanent customer changes to Accessories_Data.xlsx.', true);
+  setTimeout(closeNewCustomer, 1600);
 }
 document.addEventListener('DOMContentLoaded', function() {
   var cb = document.getElementById('ncCloseBtn');
@@ -1645,7 +1637,7 @@ setToday();genQuoteNumber(false);tryAutoLoadProducts();render();
       <div id="ncStatus" style="font-size: 12px; color: rgb(31, 122, 77); min-height: 18px; margin-bottom: 12px;"></div>
       <div style="display:flex;justify-content:flex-end;gap:10px">
         <button id="ncCancelBtn" style="padding:9px 16px;border-radius:8px;border:1px solid #dfe3ea;background:#fff;color:#6b7385;font-weight:600;cursor:pointer;font-size:13px">Cancel</button>
-        <button id="ncSaveBtn" style="padding:9px 20px;border-radius:8px;border:1px solid #1c3e71;background:#1c3e71;color:#fff;font-weight:600;cursor:pointer;font-size:13px">Save &amp; Update HTML</button>
+        <button id="ncSaveBtn" style="padding:9px 20px;border-radius:8px;border:1px solid #1c3e71;background:#1c3e71;color:#fff;font-weight:600;cursor:pointer;font-size:13px">Add for This Session</button>
       </div>
     </div>
   </div>
