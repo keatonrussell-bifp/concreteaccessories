@@ -484,6 +484,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   tbody tr:hover{background:#fafbfc}
   .li-sku{font-family:var(--mono);font-weight:600;color:var(--navy);font-size:12px;white-space:nowrap}
   .li-desc{font-size:11px;max-width:520px;line-height:1.25;white-space:normal}
+  .li-stock{font-size:9px;color:var(--muted);font-family:var(--mono);line-height:1.2;margin-top:2px;margin-bottom:3px}
   .li-unit{color:var(--muted);font-size:12px}
   .li-wt{color:#2b6cb0;font-size:11px;font-family:var(--mono);background:#eef2f8;border-radius:4px;padding:1px 5px;margin-left:4px}
   td input{width:100%;padding:5px 5px;border:1px solid var(--line);border-radius:6px;text-align:right;font-family:var(--mono);font-size:11px}
@@ -755,6 +756,9 @@ const HKEY="nsd_quote_history_v1", MAX_HIST=50;
 
 const fmt=(n)=>'$'+(isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt4=(n)=>'$'+(isFinite(n)?n:0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4});
+const fmtCostInput=(v)=>{if(v===''||v==null)return '';const n=parseFloat(v);return isFinite(n)?n.toFixed(3):'';};
+const fmtStockCount=(v)=>{if(v===''||v==null)return '0';const n=Number(String(v).replace(/,/g,''));if(!Number.isFinite(n))return String(v);return n.toLocaleString('en-US',{maximumFractionDigits:3});};
+function stockText(l){return `OH=${fmtStockCount(l.oh)} Sold=${fmtStockCount(l.sold)} IT=${fmtStockCount(l.it)} AFS=${fmtStockCount(l.afs)}`;}
 const fmtWeight=(n)=>{
   const x=Number(n);
   if(!Number.isFinite(x))return '';
@@ -838,6 +842,7 @@ function applyContact(){
 /* ── Product loader: File System Access API + IndexedDB handle persistence ── */
 const PRODUCT_WORKBOOK_NAME = 'Accessories_Data.xlsx';
 let productSource = '';
+let DATA_REFRESH_TIME = '';
 
 function setProductStatus(msg, isError){
   const el=document.getElementById('productStatus');
@@ -884,6 +889,37 @@ function cleanCell(v){
   if(v===''||v==null)return '';
   return String(v).trim();
 }
+
+function excelSerialToDateText(v){
+  const n=Number(v);
+  if(!Number.isFinite(n))return '';
+  // Excel serial date origin: 1899-12-30 handles Excel's 1900 leap-year quirk.
+  const d=new Date(Math.round((n-25569)*86400*1000));
+  if(isNaN(d.getTime()))return '';
+  return d.toLocaleString('en-US',{month:'numeric',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+}
+function getRefreshInfoText(displayRows, rawRows){
+  const rows=displayRows||[];
+  const raw=rawRows||[];
+  for(let i=0;i<rows.length;i++){
+    const key=normHeader((rows[i]&&rows[i][0])||'');
+    if(key==='lastrefreshtime'||key==='lastrefresh'||key==='datarefreshtime'||key==='refreshtime'){
+      const displayVal=(rows[i]&&rows[i][1]!=null)?String(rows[i][1]).trim():'';
+      if(displayVal && !/^\d+(\.\d+)?$/.test(displayVal))return displayVal;
+      const rawVal=raw[i]&&raw[i][1];
+      if(rawVal instanceof Date && !isNaN(rawVal.getTime())){
+        return rawVal.toLocaleString('en-US',{month:'numeric',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+      }
+      const serialText=excelSerialToDateText(rawVal!=null?rawVal:displayVal);
+      return serialText || displayVal;
+    }
+  }
+  // Fallback for the expected RefreshInfo layout: A2 = LastRefreshTime, B2 = value.
+  const displayVal=rows[1]&&rows[1][1]!=null?String(rows[1][1]).trim():'';
+  if(displayVal && !/^\d+(\.\d+)?$/.test(displayVal))return displayVal;
+  const rawVal=raw[1]&&raw[1][1];
+  return excelSerialToDateText(rawVal!=null?rawVal:displayVal) || displayVal || '';
+}
 function rowsToProducts(rows){
   if(!rows||!rows.length)return [];
   const header=rows[0].map(normHeader);
@@ -894,6 +930,10 @@ function rowsToProducts(rows){
   const iUnit=idx(['unit','uom']);
   const iWeight=idx(['unitweight','weight']);
   const iCost=idx(['cost','unitcost']);
+  const iOH=idx(['on hand tons','onhand tons','onhandtons','oh','on hand']);
+  const iSold=idx(['committed tons','committedtons','sold tons','soldtons','sold','committed']);
+  const iIT=idx(['intransit tons','in transit tons','intransittons','intransit','it']);
+  const iAFS=idx(['available tons','availabletons','afs','available']);
   const iPalletDim=idx(['pallet dimensions','pallet dimension','pallet dim','palletdim','palletdimensions']);
   const iPalletWt=idx(['pallet wt.','pallet wt','pallet weight','palletwt','palletweight']);
   let iBdlCnt=idx(['Bdl/Cnt per Pallet','BDL/Cnt per Pallet','bdl cnt per pallet','bdl/cnt','bdl cnt','bdl count','bdl count per pallet','bundle count per pallet','bundles per pallet','bdlcntperpallet','bdlctnperpallet','bdl/ctn per pallet','bdl ctn per pallet','bdl/ctn','ctn per pallet','carton per pallet','cartons per pallet']);
@@ -909,7 +949,11 @@ function rowsToProducts(rows){
     palletDim:iPalletDim>=0?cleanCell(r[iPalletDim]):'',
     palletWt:iPalletWt>=0?cleanCell(r[iPalletWt]):'',
     bdlCnt:iBdlCnt>=0?cleanCell(r[iBdlCnt]):'',
-    c:toNumOrNull(r[iCost])
+    c:toNumOrNull(r[iCost]),
+    oh:iOH>=0?toNumOrNull(r[iOH]):0,
+    sold:iSold>=0?toNumOrNull(r[iSold]):0,
+    it:iIT>=0?toNumOrNull(r[iIT]):0,
+    afs:iAFS>=0?toNumOrNull(r[iAFS]):0
   })).filter(p=>p.s&&p.d);
 }
 
@@ -1024,7 +1068,22 @@ async function loadProductsFromBuffer(buffer, sourceName){
     }
   }
 
-  setProductStatus(`✓ ${PRODUCTS.length} products loaded from ${productSource}${custMsg}${traderMsg}`);
+  /* RefreshInfo sheet (optional) — shows when the workbook data was last refreshed */
+  let refreshMsg='';
+  DATA_REFRESH_TIME='';
+  const refreshSheet=book.Sheets['RefreshInfo'];
+  if(refreshSheet){
+    try{
+      const rrowsDisplay=XLSX.utils.sheet_to_json(refreshSheet,{header:1,defval:'',raw:false});
+      const rrowsRaw=XLSX.utils.sheet_to_json(refreshSheet,{header:1,defval:null,raw:true});
+      DATA_REFRESH_TIME=getRefreshInfoText(rrowsDisplay,rrowsRaw);
+      if(DATA_REFRESH_TIME) refreshMsg=` · Last Refresh: ${DATA_REFRESH_TIME}`;
+    }catch(e){
+      refreshMsg=` · Last Refresh: unavailable`;
+    }
+  }
+
+  setProductStatus(`✓ ${PRODUCTS.length} products loaded from ${productSource}${custMsg}${traderMsg}${refreshMsg}`);
   const btn=document.getElementById('pickFileBtn');
   if(btn) btn.textContent='Select Accessories_Data.xlsx';
   if(ps&&ps.value.trim())runSearch();
@@ -1142,7 +1201,7 @@ function runSearch(){
   hiIdx=0;paintHi();pr.classList.add('open');
 }
 function addLine(p){
-  lines.push({id:uid++,sku:p.s,desc:p.d,unit:p.u||'EA',w:p.w==null?null:p.w,palletDim:p.palletDim||'',palletWt:p.palletWt||'',bdlCnt:p.bdlCnt||'',cost:p.c==null?'':p.c,qty:1,margin:'',wOverride:'',override:'',note:'',freightNo:1});
+  lines.push({id:uid++,sku:p.s,desc:p.d,unit:p.u||'EA',w:p.w==null?null:p.w,palletDim:p.palletDim||'',palletWt:p.palletWt||'',bdlCnt:p.bdlCnt||'',cost:p.c==null?'':p.c,oh:p.oh==null?0:p.oh,sold:p.sold==null?0:p.sold,it:p.it==null?0:p.it,afs:p.afs==null?0:p.afs,qty:1,margin:'',wOverride:'',override:'',note:'',freightNo:1});
   ps.value='';closeRes();ps.focus();render();
 }
 
@@ -1270,13 +1329,13 @@ function render(){
   const {out,subtotal,sumFreight,grand,sumProfit}=compute();
   tb.innerHTML=out.map(r=>{const l=r.l;const ovrSet=l.override!=='';return `<tr data-id="${l.id}">
     <td class="l"><button class="rm" title="Remove" onclick="removeLine(${l.id})">×</button></td>
-    <td class="l"><div class="li-sku">${l.sku}</div><div class="li-desc">${esc(l.desc)} <span class="li-unit">· ${l.unit}</span> ${r.warn?`<span class="warnflag">⚠ ${r.warn}</span>`:''} ${missingWeight(l)?`<span class="warnflag">⚠ No weight - set unit weight override</span>`:''}</div><input class="li-note" value="${escAttr(l.note||'')}" placeholder="Line note (optional)" oninput="upd(${l.id},'note',this.value)"></td>
+    <td class="l"><div class="li-sku">${l.sku}</div><div class="li-desc">${esc(l.desc)} <span class="li-unit">· ${l.unit}</span> ${r.warn?`<span class="warnflag">⚠ ${r.warn}</span>`:''} ${missingWeight(l)?`<span class="warnflag">⚠ No weight - set unit weight override</span>`:''}</div><div class="li-stock">${stockText(l)}</div><input class="li-note" value="${escAttr(l.note||'')}" placeholder="Line note (optional)" oninput="upd(${l.id},'note',this.value)"></td>
     <td class="qty"><input type="number" min="0" step="1" value="${l.qty}" oninput="upd(${l.id},'qty',this.value)"></td>
     <td class="calc weight">${fmtLineWeight(l)}</td>
     <td class="refcell">${esc(refVal(l.palletDim))}</td>
     <td class="refcell">${esc(refVal(l.palletWt))}</td>
     <td class="refcell">${esc(refVal(l.bdlCnt))}</td>
-    <td class="cost"><input type="number" min="0" step="0.0001" value="${l.cost}" oninput="upd(${l.id},'cost',this.value)"></td>
+    <td class="cost"><input type="number" min="0" step="0.001" value="${fmtCostInput(l.cost)}" oninput="upd(${l.id},\'cost\',this.value)"></td>
     <td class="mar"><input type="number" min="0" max="99.9" step="0.1" value="${l.margin}" ${ovrSet?'disabled':''} oninput="upd(${l.id},'margin',this.value)">${(!ovrSet&&(l.margin===''||l.margin==null))?'<span class="margin-missing">Margin not entered</span>':''}</td>
     <td class="wovr"><input type="number" min="0" step="0.0001" value="${l.wOverride||''}" placeholder="—" oninput="upd(${l.id},'wOverride',this.value)"></td>
     <td class="ovr"><input type="number" min="0" step="0.01" value="${l.override}" placeholder="—" oninput="upd(${l.id},'override',this.value)"></td>
@@ -1385,7 +1444,7 @@ function snapshot(){
     freightTotals:[1,2,3,4,5].map(i=>{const el=document.getElementById(i===1?'freight':`freight${i}`);return el?el.value:'0';}),
     includeTax:tax.include,taxRate:document.getElementById('taxRate').value,taxIncludeFreight:tax.includeFreight,
     orderNotes:document.getElementById('orderNotes').value,
-    lines:lines.map(l=>({sku:l.sku,desc:l.desc,unit:l.unit,w:l.w==null?null:l.w,cost:l.cost,qty:l.qty,margin:l.margin,override:l.override,note:l.note||'',freightNo:l.freightNo||1})),
+    lines:lines.map(l=>({sku:l.sku,desc:l.desc,unit:l.unit,w:l.w==null?null:l.w,cost:l.cost,oh:l.oh==null?0:l.oh,sold:l.sold==null?0:l.sold,it:l.it==null?0:l.it,afs:l.afs==null?0:l.afs,qty:l.qty,margin:l.margin,override:l.override,note:l.note||'',freightNo:l.freightNo||1})),
     total:tax.finalTotal,savedAt:Date.now()};
 }
 function restore(q){
@@ -1409,7 +1468,7 @@ function restore(q){
   const pmap=new Map(PRODUCTS.map(p=>[String(p.s||'').toUpperCase(),p]));
   uid=1;lines=(q.lines||[]).map(l=>{
     const p=pmap.get(String(l.sku||'').toUpperCase());
-    return {id:uid++,sku:l.sku,desc:l.desc,unit:l.unit||'EA',w:l.w!=null?l.w:(p&&p.w!=null?p.w:null),palletDim:p&&p.palletDim||'',palletWt:p&&p.palletWt||'',bdlCnt:p&&p.bdlCnt||'',cost:l.cost,qty:l.qty,margin:l.margin!=null?l.margin:'',wOverride:l.wOverride||'',override:l.override||'',note:l.note||'',freightNo:l.freightNo||1};
+    return {id:uid++,sku:l.sku,desc:l.desc,unit:l.unit||'EA',w:l.w!=null?l.w:(p&&p.w!=null?p.w:null),palletDim:p&&p.palletDim||'',palletWt:p&&p.palletWt||'',bdlCnt:p&&p.bdlCnt||'',cost:l.cost,oh:l.oh!=null?l.oh:(p&&p.oh!=null?p.oh:0),sold:l.sold!=null?l.sold:(p&&p.sold!=null?p.sold:0),it:l.it!=null?l.it:(p&&p.it!=null?p.it:0),afs:l.afs!=null?l.afs:(p&&p.afs!=null?p.afs:0),qty:l.qty,margin:l.margin!=null?l.margin:'',wOverride:l.wOverride||'',override:l.override||'',note:l.note||'',freightNo:l.freightNo||1};
   });
   render();
 }
