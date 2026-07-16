@@ -625,6 +625,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           <div class="empty" id="empty" style="display: block;">No lines yet. Search above to add products.</div>
         </div>
         <div class="totals">
+          <div class="trow"><span class="lbl">Total Weight</span><span class="val" id="tWeight">0 lb</span></div>
           <div class="trow"><span class="lbl">Subtotal (before freight)</span><span class="val" id="tBase">$0.00</span></div>
           <div class="trow"><span class="lbl">Freight (by price share)</span><span class="val" id="tFreight">$0.00</span></div>
           <div class="taxbox">
@@ -773,12 +774,16 @@ const effectiveUnitWeight=(l)=>{
   const w=Number(l&&l.w);
   return Number.isFinite(w)?w:null;
 };
-const fmtLineWeight=(l)=>{
+const lineTotalWeight=(l)=>{
   const unitWt=effectiveUnitWeight(l);
   const qty=Number(l&&l.qty);
+  if(unitWt==null||!Number.isFinite(qty))return 0;
+  return unitWt*qty;
+};
+const fmtLineWeight=(l)=>{
+  const unitWt=effectiveUnitWeight(l);
   if(unitWt==null)return '—';
-  const total=unitWt*(Number.isFinite(qty)?qty:0);
-  return fmtWeight(total)+' lb';
+  return fmtWeight(lineTotalWeight(l))+' lb';
 };
 const refVal=(v)=>{
   if(v==null)return 'N/A';
@@ -1204,7 +1209,7 @@ function runSearch(){
   hiIdx=0;paintHi();pr.classList.add('open');
 }
 function addLine(p){
-  lines.push({id:uid++,sku:p.s,desc:p.d,unit:p.u||'EA',w:p.w==null?null:p.w,palletDim:p.palletDim||'',palletWt:p.palletWt||'',bdlCnt:p.bdlCnt||'',cost:p.c==null?'':p.c,oh:p.oh==null?0:p.oh,sold:p.sold==null?0:p.sold,it:p.it==null?0:p.it,afs:p.afs==null?0:p.afs,qty:1,margin:'',wOverride:'',override:'',note:'',freightNo:1});
+  lines.push({id:uid++,sku:p.s,desc:p.d,unit:p.u||'EA',w:p.w==null?null:p.w,palletDim:p.palletDim||'',palletWt:p.palletWt||'',bdlCnt:p.bdlCnt||'',cost:p.c==null?'':p.c,oh:p.oh==null?0:p.oh,sold:p.sold==null?0:p.sold,it:p.it==null?0:p.it,afs:p.afs==null?0:p.afs,qty:1,margin:'0',wOverride:'',override:'',note:'',freightNo:1});
   ps.value='';closeRes();ps.focus();render();
 }
 
@@ -1288,6 +1293,7 @@ function compute(){
       freightSubtotals[fn]+=r.baseExt;
     }
   });
+  const totalWeight=pre.reduce((s,r)=>s+lineTotalWeight(r.l),0);
   // pass 2: allocate each freight pool by share of priced subtotal assigned to that Freight #
   let sumFreight=0,grand=0,sumProfit=0;
   const out=pre.map(r=>{
@@ -1307,7 +1313,7 @@ function compute(){
     return {l:r.l,qty:r.qty,baseUnit:r.baseUnit,fpu,unit,lineTot,profit,warn:r.warn,freightNo};
   });
   const tax=computeTax(subtotal,grand);
-  return {out,subtotal,sumFreight,grand,sumProfit,tax};
+  return {out,subtotal,sumFreight,grand,sumProfit,totalWeight,tax};
 }
 function fmtRate(n){return (Number(n)||0).toFixed(3).replace(/0+$/,'').replace(/\.$/,'');}
 function taxIncludesFreight(){
@@ -1329,7 +1335,7 @@ function computeTax(subtotalBeforeFreight,quoteBeforeTax){
 function render(){
   const tb=document.getElementById('lbody');
   document.getElementById('empty').style.display=lines.length?'none':'block';
-  const {out,subtotal,sumFreight,grand,sumProfit}=compute();
+  const {out,subtotal,sumFreight,grand,sumProfit,totalWeight,tax}=compute();
   tb.innerHTML=out.map(r=>{const l=r.l;const ovrSet=l.override!=='';return `<tr data-id="${l.id}">
     <td class="l"><button class="rm" title="Remove" onclick="removeLine(${l.id})">×</button></td>
     <td class="l"><div class="li-sku">${l.sku}</div><div class="li-desc">${esc(l.desc)} <span class="li-unit">· ${l.unit}</span> ${r.warn?`<span class="warnflag">⚠ ${r.warn}</span>`:''} ${missingWeight(l)?`<span class="warnflag">⚠ No weight - set unit weight override</span>`:''}</div><div class="li-stock">${stockText(l)}</div><input class="li-note" value="${escAttr(l.note||'')}" placeholder="Line note (optional)" oninput="upd(${l.id},'note',this.value)"></td>
@@ -1347,10 +1353,12 @@ function render(){
     <td class="calc unitprice">${r.unit!=null?fmt(r.unit):'—'}</td>
     <td class="linetot">${r.lineTot!=null?fmt(r.lineTot):'—'}</td>
     <td class="estprofit${r.profit!=null&&r.profit<0?' neg':''}">${r.profit!=null?fmt(r.profit):'—'}</td></tr>`;}).join('');
-  setTotals(subtotal,sumFreight,grand,sumProfit,tax);clearSaved();
+  setTotals(subtotal,sumFreight,grand,sumProfit,totalWeight,tax);clearSaved();
 }
-function setTotals(b,f,g,p,tax){
+function setTotals(b,f,g,p,totalWeight,tax){
   tax=tax||computeTax(b,g);
+  const tw=document.getElementById('tWeight');
+  if(tw)tw.textContent=fmtWeight(totalWeight||0)+' lb';
   document.getElementById('tBase').textContent=fmt(b);
   document.getElementById('tFreight').textContent=fmt(f);
   const tGrand=document.getElementById('tGrand'); if(tGrand)tGrand.textContent=fmt(g);
@@ -1391,7 +1399,7 @@ function syncMarginWarning(id){
 }
 
 function recalcLight(){
-  const {out,subtotal,sumFreight,grand,sumProfit,tax}=compute();
+  const {out,subtotal,sumFreight,grand,sumProfit,totalWeight,tax}=compute();
   out.forEach(r=>{const tr=document.querySelector(`tr[data-id="${r.l.id}"]`);if(!tr)return;const tds=tr.querySelectorAll('td');
     tds[3].textContent=fmtLineWeight(r.l);
     tds[4].textContent=refVal(r.l.palletDim);
@@ -1410,7 +1418,7 @@ function recalcLight(){
       desc.innerHTML=base+warnHtml;
     }
   });
-  setTotals(subtotal,sumFreight,grand,sumProfit,tax);
+  setTotals(subtotal,sumFreight,grand,sumProfit,totalWeight,tax);
 }
 function removeLine(id){lines=lines.filter(x=>x.id!==id);render();}
 document.querySelectorAll('.freight-input').forEach(el=>el.addEventListener('input',()=>{recalcLight();clearSaved();}));
@@ -1471,7 +1479,7 @@ function restore(q){
   const pmap=new Map(PRODUCTS.map(p=>[String(p.s||'').toUpperCase(),p]));
   uid=1;lines=(q.lines||[]).map(l=>{
     const p=pmap.get(String(l.sku||'').toUpperCase());
-    return {id:uid++,sku:l.sku,desc:l.desc,unit:l.unit||'EA',w:l.w!=null?l.w:(p&&p.w!=null?p.w:null),palletDim:p&&p.palletDim||'',palletWt:p&&p.palletWt||'',bdlCnt:p&&p.bdlCnt||'',cost:l.cost,oh:l.oh!=null?l.oh:(p&&p.oh!=null?p.oh:0),sold:l.sold!=null?l.sold:(p&&p.sold!=null?p.sold:0),it:l.it!=null?l.it:(p&&p.it!=null?p.it:0),afs:l.afs!=null?l.afs:(p&&p.afs!=null?p.afs:0),qty:l.qty,margin:l.margin!=null?l.margin:'',wOverride:l.wOverride||'',override:l.override||'',note:l.note||'',freightNo:l.freightNo||1};
+    return {id:uid++,sku:l.sku,desc:l.desc,unit:l.unit||'EA',w:l.w!=null?l.w:(p&&p.w!=null?p.w:null),palletDim:p&&p.palletDim||'',palletWt:p&&p.palletWt||'',bdlCnt:p&&p.bdlCnt||'',cost:l.cost,oh:l.oh!=null?l.oh:(p&&p.oh!=null?p.oh:0),sold:l.sold!=null?l.sold:(p&&p.sold!=null?p.sold:0),it:l.it!=null?l.it:(p&&p.it!=null?p.it:0),afs:l.afs!=null?l.afs:(p&&p.afs!=null?p.afs:0),qty:l.qty,margin:(l.margin===''||l.margin==null)?'0':l.margin,wOverride:l.wOverride||'',override:l.override||'',note:l.note||'',freightNo:l.freightNo||1};
   });
   render();
 }
